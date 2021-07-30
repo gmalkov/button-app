@@ -55,7 +55,7 @@ commands:
     steps:
       - checkout
       - setup_remote_docker:
-          docker_layer_caching: true
+          # docker_layer_caching: true // not available on free account
           version: 20.10.2
       - gcp-cli/initialize:
           gcloud-service-key: <<parameters.gcloud-service-key>>
