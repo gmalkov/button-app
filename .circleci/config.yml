@@ -1,10 +1,108 @@
 version: 2.1
+
 orbs:
-  cypress: cypress-io/cypress@1
+  gcp-cli: circleci/gcp-cli@2.1
+  node: circleci/node@4.5.2
+  docker: circleci/docker@1.5
+
+executors:
+  curl:
+    docker:
+      - image: curlimages/curl:7.76.1
+  gcp:
+    docker:
+      - image: google/cloud-sdk:latest
+
+commands:
+  docker-build-and-push:
+    parameters:
+      registry-location:
+        default: us-central1
+        description: 'The Google Artifact Registry location from [us, us-central1, ???]-docker.pkg.dev'
+        type: string
+      registry-project:
+        default: gmalkov-button
+        description: 'The Google Artifact Registry project name'
+        type: string
+      registry-name:
+        default: button
+        description: 'The Google Artifact Registry name'
+        type: string
+      image:
+        default: button
+        description: 'Image name'
+        type: string
+      gcloud-service-key:
+        default: GCLOUD_SERVICE_KEY
+        description: The gcloud service key
+        type: env_var_name
+      google-compute-region:
+        default: GOOGLE_COMPUTE_REGION
+        description: |
+          The Google compute region to connect with via the gcloud CLI
+        type: env_var_name
+      google-compute-zone:
+        default: GOOGLE_COMPUTE_ZONE
+        description: |
+          The Google compute zone to connect with via the gcloud CLI
+        type: env_var_name
+      google-project-id:
+        default: GOOGLE_PROJECT_ID
+        description: >
+          Environment variable name for the Google project ID to connect with via
+          the gcloud CLI
+        type: env_var_name
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: 20.10.2
+      - gcp-cli/initialize:
+          gcloud-service-key: <<parameters.gcloud-service-key>>
+          google-compute-region: <<parameters.google-compute-region>>
+          google-compute-zone: <<parameters.google-compute-zone>>
+          google-project-id: <<parameters.google-project-id>>
+      - run:
+          name: Authenticate to Google Artifact Registry
+          command: >
+            # configure Docker to use gcloud as a credential helper
+            mkdir -p "$HOME/.docker"
+
+            gcloud auth configure-docker --quiet
+            <<parameters.registry-location>>-docker.pkg.dev
+      - docker/build:
+          step-name: Build Docker image for Google Artifact Registry
+          image: <<parameters.image>>
+          registry: <<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>
+          tag: ${CIRCLE_SHA1}
+      - run:
+          name: Push image to Google Artifact Registry
+          command: >
+            docker push
+            <<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:${CIRCLE_SHA1}
+      - run:
+          name: Add additional tags to image
+          command: >
+            gcloud artifacts docker tags add
+            <<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:${CIRCLE_SHA1}
+            <<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:latest
+
+jobs:
+  docker-build-and-push:
+    executor: gcp
+    steps:
+      - docker-build-and-push
+
 workflows:
-  test:
+  commit:
     jobs:
-      - cypress/run:
-          build: npm run build
-          wait-on: http://localhost:5000
-          start: npm start
+      - node/test
+      - docker-build-and-push:
+          filters:
+              branches:
+                only:
+                  - master
+          requires:
+            - node/test
+          context:
+            - gar
