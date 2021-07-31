@@ -14,5 +14,4 @@ COPY package.json .
 COPY package-lock.json .
 RUN npm ci --only=production
 EXPOSE 8080
-ENV HOST=0.0.0.0
 CMD [ "npm", "start" ]
