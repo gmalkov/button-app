@@ -6,6 +6,7 @@ module "project-services" {
 
   activate_apis = [
     "artifactregistry.googleapis.com",
-    "cloudresourcemanager.googleapis.com"
+    "cloudresourcemanager.googleapis.com",
+    "run.googleapis.com"
   ]
 }
