@@ -94,7 +94,7 @@ commands:
           name: Deploy latest version to cloud run
           command: >
             gcloud run services update button
-            --region=<<parameters.google-compute-region>>
+            --region=<<parameters.registry-location>>
             --image=<<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:${CIRCLE_SHA1:0:7}
 
 jobs:
