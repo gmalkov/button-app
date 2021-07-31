@@ -14,7 +14,7 @@ executors:
       - image: google/cloud-sdk:latest
 
 commands:
-  docker-build-and-push:
+  docker-build-push-deploy:
     parameters:
       registry-location:
         default: us-central1
@@ -87,17 +87,24 @@ commands:
             <<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:${CIRCLE_SHA1}
             <<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:latest
 
+            gcloud artifacts docker tags add
+            <<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:${CIRCLE_SHA1}
+            <<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:${CIRCLE_SHA1:0:7}
+      - run:
+          name: Deploy latest version to cloud run
+          command: gcloud run services update button --image=<<parameters.registry-location>>-docker.pkg.dev/<<parameters.registry-project>>/<<parameters.registry-name>>/<<parameters.image>>:${CIRCLE_SHA1:0:7}
+
 jobs:
-  docker-build-and-push:
+  docker-build-push-deploy:
     executor: gcp
     steps:
-      - docker-build-and-push
+      - docker-build-push-deploy
 
 workflows:
   commit:
     jobs:
       - node/test
-      - docker-build-and-push:
+      - docker-build-push-deploy:
           filters:
               branches:
                 only:
